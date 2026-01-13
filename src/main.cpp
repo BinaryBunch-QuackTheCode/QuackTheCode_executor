@@ -1,17 +1,16 @@
 
 
 
-#include "executor.hpp"
-#include <iostream> 
+#include "execution_server.hpp"
 
 int main()
 {
-    Executor executor; 
 
-    auto output = executor.execute("prnt('Hello world')");
-
-    std::cout << "Std Out: \n" << output.stdout << std::endl;  
-    std::cout << "Std Err: \n" << output.stderr << std::endl; 
+    ExecutionServer({
+        .socket_type = ExecutionServer::SocketType::UNIX,
+        .socket_path = "/tmp/executor.sock",
+        .jail_config_path = "../config/sandbox.cfg"
+    }).run(); 
 
     return 0; 
 }

@@ -19,6 +19,6 @@ add_executable(qtc_executor
     ${SOURCES}
 )
 
-include_directories(./include)
+include_directories(./include ./libs)
 
 
