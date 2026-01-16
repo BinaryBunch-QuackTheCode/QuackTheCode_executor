@@ -3,6 +3,8 @@
 
 #include "socket_server.hpp"
 
+/// @breif Unix Socket implementation of socket server. Used when the executor 
+///        is on the same machine as the game server 
 class UnixSocketServer : public SocketServer
 {
 

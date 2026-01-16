@@ -4,6 +4,34 @@
 #include "execution_server.hpp"
 #include <iostream> 
 
+/* 
+ * Entry Point to the Executor Program. 
+ *  
+ * The Executor program will listen on a specified socket type (UNIX or TCP), expecting 
+ * JSON messages delimited by the newline character. 
+ * The message should be in the following form: 
+ * {
+ *     player_id: int,
+ *     game_id: int, 
+ *     user_code: str, 
+ *     test_code: str
+ * }\n
+ *
+ * The Executor will then execute the program included in the JSON message in an sandboxed enviornment
+ *
+ * The Executor will then send JSON results back through the connected socket
+ * The response message will be in the following form: 
+ * {
+ *     player_id: int
+ *     game_id: int
+ *     stdout: str
+ *     stderr: str
+ * }
+ *
+*/ 
+
+
+
 int main(int argc, char** argv)
 {
     Config config; 

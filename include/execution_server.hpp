@@ -6,6 +6,8 @@
 #include "thread_pool.hpp"
 #include <memory>
 
+/// @breif Execution server that manages the server socket, execution pool and conifg
+///       Interface to the executor program 
 class ExecutionServer
 {
 

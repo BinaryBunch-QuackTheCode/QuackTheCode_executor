@@ -12,6 +12,9 @@ ExecutionOutput Executor::execute(const std::string& user_code, const std::strin
 {
     std::string full_code = user_code + '\n' + test_code;
 
+    // The plan is to pipe in, out and err so the parent process can
+    // write to stdin and read from stdout and stderr as the child executes the isolated python code 
+    
     int in[2], out[2], err[2];
     if (pipe2(in, O_CLOEXEC) != 0 || pipe2(out, O_CLOEXEC) != 0 || pipe2(err, O_CLOEXEC) != 0)
     {
@@ -24,6 +27,7 @@ ExecutionOutput Executor::execute(const std::string& user_code, const std::strin
     int stdout_write = out[1];
     int stderr_read  = err[0];
     int stderr_write = err[1];
+
 
     std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
     std::filesystem::create_directory(jail_dir);
@@ -42,6 +46,7 @@ ExecutionOutput Executor::execute(const std::string& user_code, const std::strin
     }
 
     // parent
+    
     close(stdin_read);
     close(stdout_write);
     close(stderr_write);
@@ -120,11 +125,13 @@ ExecutionOutput Executor::epoll_fds(const std::string& code, int stdin_write, in
     bool   stdin_done = false, stdout_open = true, stderr_open = true;
 
     std::string stdout_buf, stderr_buf;
+
     // tmp buffer for reading outputs, will be appended to the above buffers
     char tmp_buf[4096];
 
     epoll_event events[3];
 
+    // Write to stdin while reading from stdout and stderr 
     try
     {
         while (!stdin_done || stdout_open || stderr_open)

@@ -17,6 +17,8 @@ void SocketServer::run()
 
     while (true)
     {
+        // One client at a time 
+
         _client_fd = accept(_socket_fd, nullptr, nullptr);
 
         if (_client_fd < 0)
@@ -53,6 +55,8 @@ void SocketServer::handle_client(int client_fd)
             throw std::system_error(errno, std::generic_category(), "recv failed");
         }
 
+        // New lines used as delimiter.  
+        // Handles multiple JSON messages in a recv
         size_t msg_start = 0; 
         for (size_t i = to_search; i < buffer_size; i++)
         {
@@ -65,6 +69,7 @@ void SocketServer::handle_client(int client_fd)
             }
         }
 
+        // Handles incomplete JSON messages from recv
         if (msg_start < buffer_size)
         {
             to_search = buffer_size;

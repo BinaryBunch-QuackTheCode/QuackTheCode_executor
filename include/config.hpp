@@ -23,15 +23,18 @@ struct TCPSocketArgs
     uint16_t port; 
 };
 
+/// @breif Configuration for the execution server.  
 struct Config
 {
 
+    // Byte stream socket type 
     SocketType socket_type; 
 
     std::optional<UnixSocketArgs> unix_args;  
 
     std::optional<TCPSocketArgs> tcp_args;  
 
+    // Path to the nsjail sandbox config 
     std::string sandbox_cfg_path; 
 
     uint32_t num_threads; 

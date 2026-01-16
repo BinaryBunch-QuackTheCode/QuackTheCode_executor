@@ -7,11 +7,15 @@
 
 int TCPSocketServer::create_socket_fd()
 {
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (socket_fd < 0) 
     {
         throw std::system_error(errno, std::generic_category(), "socket failed");
     }
+
+    int yes = 1; 
+    setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
     sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(_port); 

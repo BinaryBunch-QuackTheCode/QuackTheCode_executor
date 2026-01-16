@@ -33,12 +33,12 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
                 {"player_id",   message["player_id"]}, 
                 {"stdout",      std::move(output.stdout)}, 
                 {"stderr",      std::move(output.stderr)}, 
-                {"sandbox_err", std::move(output.sandbox_err)}};
+            };
 
             _socket_server->send(output_json.dump() + '\n');
         });
 
-    _socket_server->on_read(
+    _socket_server->on_recv(
         [this](json message)
         {
             _execution_pool.enqueue({

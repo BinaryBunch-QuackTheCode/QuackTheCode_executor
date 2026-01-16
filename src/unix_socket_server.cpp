@@ -12,8 +12,7 @@ UnixSocketServer::UnixSocketServer(const std::string& socket_path) : _socket_pat
 int UnixSocketServer::create_socket_fd()
 {
     unlink(_socket_path.c_str());
-
-    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int socket_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (socket_fd < 0) 
     {
         throw std::system_error(errno, std::generic_category(), "socket failed");
