@@ -1,0 +1,8 @@
+
+{
+    "socket": {
+        "socket_type": "unix", 
+        "path": "/tmp/executor.sock"
+    },
+    "sandbox_config_path": "./config/sandbox.cfg"
+}

@@ -2,21 +2,24 @@
 #include "execution_server.hpp"
 #include "executor.hpp"
 #include "unix_socket_server.hpp"
+#include "tcp_socket_server.hpp"
 
 #include <nlohmann/json.hpp>
 
-#include <iostream> 
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
 using json = nlohmann::json;
 
-ExecutionServer::ExecutionServer(const Args& args) : _executor(args.jail_config_path)
+ExecutionServer::ExecutionServer(const Config& config) : _config(config), _executor(config.sandbox_cfg_path)
 {
-    switch (args.socket_type)
+    switch (config.socket_type)
     {
-    case ExecutionServer::SocketType::UNIX:
-        _socket_server = std::make_unique<UnixSocketServer>(args.socket_path);
+    case SocketType::UNIX:
+        _socket_server = std::make_unique<UnixSocketServer>(config.unix_args->path);
+        break;
+    case SocketType::TCP: 
+        _socket_server = std::make_unique<TCPSocketServer>(config.tcp_args->ip_addr, config.tcp_args->port);
         break;
     default:
         throw std::invalid_argument("Unsupported socket type");
