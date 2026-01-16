@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <iostream> 
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
@@ -21,21 +22,29 @@ ExecutionServer::ExecutionServer(const Args& args) : _executor(args.jail_config_
         throw std::invalid_argument("Unsupported socket type");
     }
 
-    _socket_server->on_read(
-        [this](const json& message)
+    _execution_pool.on_execution_complete(
+        [this](json message, ExecutionOutput output) 
         {
-            int         player_id = message["player_id"];
-            std::string user_code = message["user_code"];
-            std::string test_code = message["test_code"];
-
-            auto output = _executor.execute(user_code, test_code);
-
             json output_json = {
-                {"player_id", player_id},
-                {"stdout", std::move(output.stdout)}, 
-                {"stderr", std::move(output.stderr)}
-            }; 
+                {"game_id",   message["game_id"]},  
+                {"player_id", message["player_id"]}, 
+                {"stdout",    std::move(output.stdout)}, 
+                {"stderr",    std::move(output.stderr)}};
 
-            _socket_server->send(output_json.dump());
+            _socket_server->send(output_json.dump() + '\n');
+        });
+
+    _socket_server->on_read(
+        [this](json message)
+        {
+            _execution_pool.enqueue({
+                .task_func = [this](const json& message) 
+                { 
+                    std::string user_code = message["user_code"];
+                    std::string test_code = message["test_code"];
+                    return _executor.execute(user_code, test_code); 
+                }, 
+                .task_msg = std::move(message)
+            });
         });
 }

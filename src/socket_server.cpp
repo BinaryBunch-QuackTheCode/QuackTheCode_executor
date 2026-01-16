@@ -3,7 +3,6 @@
 #include "socket_server.hpp"
 #include <sys/socket.h>
 #include <unistd.h>
-#include <iostream> 
 
 using json = nlohmann::json;
 
@@ -16,18 +15,16 @@ void SocketServer::run()
 
     _socket_fd = create_socket_fd();
 
-    int client_fd = accept(_socket_fd, nullptr, nullptr);
+    _client_fd = accept(_socket_fd, nullptr, nullptr);
 
-    if (client_fd < 0)
+    if (_client_fd < 0)
     {
         throw std::system_error(errno, std::generic_category(), "accept failed");
     }
 
-    std::cout << "accepted" << std::endl;
+    handle_client(_client_fd);
 
-    handle_client(client_fd);
-
-    close(client_fd);
+    close(_client_fd);
 }
 
 void SocketServer::handle_client(int client_fd)
@@ -53,16 +50,19 @@ void SocketServer::handle_client(int client_fd)
             throw std::system_error(errno, std::generic_category(), "recv failed");
         }
 
-        std::optional<size_t> msg_delim_idx;
+        size_t msg_start = 0; 
         for (size_t i = to_search; i < buffer_size; i++)
         {
             if (buffer[i] == '\n')
             {
-                msg_delim_idx = i;
+                buffer[i] = '\0';
+                const char* message = &buffer.get()[msg_start];
+                _on_read_func(json::parse(message));
+                msg_start = i + 1; 
             }
         }
 
-        if (!msg_delim_idx)
+        if (msg_start < buffer_size)
         {
             to_search = buffer_size;
 
@@ -74,15 +74,13 @@ void SocketServer::handle_client(int client_fd)
                 memcpy(tmp.get(), buffer.get(), buffer_size);
                 buffer = std::move(tmp);
             }
-            continue;
+        }
+        else
+        {
+            to_search   = 0;
+            buffer_size = 0;
         }
 
-        buffer[*msg_delim_idx] = '\0';
-
-        _on_read_func(json::parse(buffer.get()));
-
-        to_search   = 0;
-        buffer_size = 0;
     }
 }
 
@@ -91,7 +89,7 @@ void SocketServer::send(const std::string& msg)
     ssize_t total_sent = 0; 
     while (total_sent < msg.size())
     {
-        ssize_t sent = ::send(_socket_fd, msg.data() + total_sent, msg.size() - sent, 0);
+        ssize_t sent = ::send(_client_fd, msg.data() + total_sent, msg.size() - total_sent, 0);
         if (sent > 0)
         {
             total_sent += sent; 

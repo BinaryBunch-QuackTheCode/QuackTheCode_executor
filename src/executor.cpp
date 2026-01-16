@@ -1,19 +1,19 @@
 
 #include "executor.hpp"
 #include <fcntl.h>
+#include <filesystem>
 #include <string>
 #include <sys/epoll.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <unistd.h>
-#include <filesystem>
 
 ExecutionOutput Executor::execute(const std::string& user_code, const std::string& test_code)
 {
-    std::string full_code = user_code + '\n' + test_code; 
+    std::string full_code = user_code + '\n' + test_code;
 
     int in[2], out[2], err[2];
-    if (pipe(in) != 0 || pipe(out) != 0 || pipe(err) != 0)
+    if (pipe2(in, O_CLOEXEC) != 0 || pipe2(out, O_CLOEXEC) != 0 || pipe2(err, O_CLOEXEC) != 0)
     {
         throw std::system_error(errno, std::generic_category(), "Executor Pipe failed");
     }
@@ -25,15 +25,15 @@ ExecutionOutput Executor::execute(const std::string& user_code, const std::strin
     int stderr_read  = err[0];
     int stderr_write = err[1];
 
+    std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
+    std::filesystem::create_directory(jail_dir);
+
     pid_t pid = fork();
 
     if (pid == -1)
     {
         throw std::system_error(errno, std::generic_category(), "fork failed");
     }
-
-    std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
-    std::filesystem::create_directory(jail_dir);
 
     if (pid == 0) // child
     {
@@ -53,11 +53,10 @@ ExecutionOutput Executor::execute(const std::string& user_code, const std::strin
 
     std::filesystem::remove_all(jail_dir);
 
-    return output; 
+    return output;
 }
 
-
-bool Executor::read_fd(std::string* output, char* read_buf, size_t read_buf_size,  int fd)
+bool Executor::read_fd(std::string* output, char* read_buf, size_t read_buf_size, int fd)
 {
     while (true)
     {
@@ -68,22 +67,21 @@ bool Executor::read_fd(std::string* output, char* read_buf, size_t read_buf_size
         }
         else if (r == 0)
         {
-            close(fd);
             return false;
         }
         else if (errno == EWOULDBLOCK || errno == EAGAIN)
         {
-            return true; 
+            return true;
         }
         else
         {
-            close(fd);
             throw std::system_error(errno, std::generic_category(), "read failed");
         }
     }
 }
 
-void Executor::run_jail(const std::string& jail_dir, int stdin_read, int stdin_write, int stdout_read, int stdout_write, int stderr_read, int stderr_write)
+void Executor::run_jail(const std::string& jail_dir, int stdin_read, int stdin_write, int stdout_read, int stdout_write, int stderr_read,
+                        int stderr_write)
 {
     dup2(stdin_read, STDIN_FILENO);
     dup2(stdout_write, STDOUT_FILENO);
@@ -93,15 +91,9 @@ void Executor::run_jail(const std::string& jail_dir, int stdin_read, int stdin_w
     close(stdout_read);
     close(stderr_read);
 
-    execlp("nsjail", "nsjail",
-       "--quiet",
-       "--config", _config_path.c_str(),
-       "--bindmount", (jail_dir + ":/sandbox").c_str(),
-       "--",
-       "/usr/local/bin/python3", "-",
-       (char*) nullptr);
+    execlp("nsjail", "nsjail", "--quiet", "--config", _config_path.c_str(), "--bindmount", (jail_dir + ":/sandbox").c_str(), "--",
+           "/usr/local/bin/python3", "-", (char*)nullptr);
 }
-
 
 ExecutionOutput Executor::epoll_fds(const std::string& code, int stdin_write, int stdout_read, int stderr_read)
 {
@@ -124,50 +116,67 @@ ExecutionOutput Executor::epoll_fds(const std::string& code, int stdin_write, in
     ev.data.fd = stderr_read;
     epoll_ctl(ep, EPOLL_CTL_ADD, stderr_read, &ev);
 
-    size_t written     = 0;
-    bool   stdin_done  = false;
-    bool   stdout_open = true;
-    bool   stderr_open = true;
+    size_t written    = 0;
+    bool   stdin_done = false, stdout_open = true, stderr_open = true;
 
     std::string stdout_buf, stderr_buf;
-    char        buf[4096];
+    // tmp buffer for reading outputs, will be appended to the above buffers
+    char tmp_buf[4096];
 
     epoll_event events[3];
 
-    while (!stdin_done || stdout_open || stderr_open)
+    try
     {
-        int n = epoll_wait(ep, events, 3, -1);
-
-        for (int i = 0; i < n; i++)
+        while (!stdin_done || stdout_open || stderr_open)
         {
-            int fd = events[i].data.fd;
+            int n = epoll_wait(ep, events, 3, -1);
 
-            if (fd == stdin_write && !stdin_done)
+            for (int i = 0; i < n; i++)
             {
-                ssize_t w = write(stdin_write, code.data() + written, code.size() - written);
-                if (w > 0)
+                int fd = events[i].data.fd;
+
+                if (fd == stdin_write && !stdin_done)
                 {
-                    written += w;
-                    if (written == code.size())
+                    ssize_t w = write(stdin_write, code.data() + written, code.size() - written);
+                    if (w > 0)
                     {
-                        close(stdin_write);
-                        stdin_done = true;
+                        written += w;
+                        if (written == code.size())
+                        {
+                            close(stdin_write);
+                            stdin_done = true;
+                        }
                     }
                 }
-            }
-            else if (fd == stdout_read)
-            {
-                stdout_open = read_fd(&stdout_buf, buf, sizeof(buf), fd);
-            }
-            else if (fd == stderr_read)
-            {
-                stderr_open = read_fd(&stdout_buf, buf, sizeof(buf), fd);
+                else if (fd == stdout_read)
+                {
+                    stdout_open = read_fd(&stdout_buf, tmp_buf, sizeof(tmp_buf), fd);
+                }
+                else if (fd == stderr_read)
+                {
+                    stderr_open = read_fd(&stderr_buf, tmp_buf, sizeof(tmp_buf), fd);
+                }
             }
         }
     }
-    return { .stdout = std::move(stdout_buf), .stderr = std::move(stderr_buf )};
-}
+    catch (const std::system_error& err)
+    {
+        close(stdout_read);
+        close(stderr_read);
+        if (!stdin_done) 
+            close(stdin_write);
+        close(ep);     
+        throw err; 
+    }
 
+    close(stdout_read);
+    close(stderr_read);
+    if (!stdin_done) 
+        close(stdin_write);
+    close(ep);     
+
+    return {.stdout = std::move(stdout_buf), .stderr = std::move(stderr_buf)};
+}
 
 void Executor::set_nonblocking(int fd)
 {
@@ -175,9 +184,7 @@ void Executor::set_nonblocking(int fd)
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-unsigned int Executor::generate_execution_id()
-{
-    return _jails++; 
-}
+unsigned int Executor::generate_execution_id() { return _jails++; }
+
 
 

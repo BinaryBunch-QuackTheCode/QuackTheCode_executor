@@ -9,7 +9,7 @@ class SocketServer
 {
 
   public:
-    void on_read(const std::function<void(const nlohmann::json&)>& func) { _on_read_func = func; };
+    void on_read(std::function<void(const nlohmann::json&)> func) { _on_read_func = std::move(func); };
     void send(const std::string& msg);
     void run();
 
@@ -22,4 +22,5 @@ class SocketServer
     std::function<void(const nlohmann::json&)> _on_read_func = nullptr;
 
     int _socket_fd;
+    int _client_fd = -1; 
 };
