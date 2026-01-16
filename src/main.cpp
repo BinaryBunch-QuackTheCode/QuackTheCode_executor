@@ -14,7 +14,8 @@
  *     player_id: int,
  *     game_id: int, 
  *     user_code: str, 
- *     test_code: list[str]
+ *     inputs_code: list[str]
+ *     test_code: str
  * }\n
  *
  * The Executor will then execute the program included in the JSON message in an sandboxed enviornment
@@ -22,10 +23,22 @@
  * The Executor will then send JSON results back through the connected socket
  * The response message will be in the following form: 
  * {
+ *      
  *     player_id: int
  *     game_id: int
- *     stdout: str
- *     stderr: str
+ *     results: [
+ *       { 
+ *          stats: {
+ *              cpu_time_ms: uint, 
+ *              succedeed: bool
+ *              reason: str
+ *          }, 
+ *          output: {
+ *              stdout: str, 
+ *              stderr: str
+ *          }
+ *       }
+ *     ]
  * }
  *
 */ 
