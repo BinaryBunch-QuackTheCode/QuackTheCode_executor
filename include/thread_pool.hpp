@@ -14,8 +14,8 @@ class ExecutionThreadPool
   public:
     struct Task
     {
-        std::function<ExecutionOutput(const nlohmann::json&)> task_func;
-        nlohmann::json                                        task_msg;
+        std::function<std::vector<std::pair<ExecutionOutput, ExecutionStats>>(const nlohmann::json&)> task_func;
+        nlohmann::json task_msg;
     };
     /// @breif Create a thread pool 
     /// @param num_threads Specify the number of threads used in the pool 
@@ -25,7 +25,7 @@ class ExecutionThreadPool
 
     /// @breif Set a callback to run when an execution of code is complete. 
     /// @param func Function that expects the message that started the execution and the output of the execution 
-    void on_execution_complete(std::function<void(const nlohmann::json& message, const ExecutionOutput&)> func)
+    void on_execution_complete(std::function<void(const nlohmann::json& message, const std::vector<std::pair<ExecutionOutput, ExecutionStats>>&)> func)
     {
         _on_execution_complete_func = std::move(func);
     };
@@ -37,7 +37,7 @@ class ExecutionThreadPool
 
   private:
 
-    std::function<void(const nlohmann::json& message, const ExecutionOutput&)> _on_execution_complete_func;
+    std::function<void(const nlohmann::json& message, std::vector<std::pair<ExecutionOutput, ExecutionStats>>)> _on_execution_complete_func;
 
     std::vector<std::thread> _workers;
     std::mutex               _queue_mutex;

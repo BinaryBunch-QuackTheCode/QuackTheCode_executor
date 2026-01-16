@@ -26,7 +26,7 @@ ExecutionThreadPool::ExecutionThreadPool(size_t num_threads)
                         task = std::move(_tasks.front());
                         _tasks.pop();
                     }
-                    _on_execution_complete_func(task.task_msg, task.task_func(task.task_msg));
+                    _on_execution_complete_func(std::move(task.task_msg), task.task_func(task.task_msg));
                 }
             });
     }

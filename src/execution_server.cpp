@@ -26,16 +26,34 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
     }
 
     _execution_pool.on_execution_complete(
-        [this](json message, ExecutionOutput output) 
+        [this](json message, std::vector<std::pair<ExecutionOutput, ExecutionStats>> outputs) 
         {
-            json output_json = {
-                {"game_id",     message["game_id"]},  
-                {"player_id",   message["player_id"]}, 
-                {"stdout",      std::move(output.stdout)}, 
-                {"stderr",      std::move(output.stderr)}, 
+            std::vector<json> results; 
+            for (const auto [output, stats] : outputs)
+            {
+                json output_json = {
+                    {"stdout", std::move(output.stdout)}, 
+                    {"stderr", std::move(output.stderr)}, 
+                };
+
+                json stats_json = { 
+                    {"cpu_time_ms", stats.cpu_time_ms},
+                    {"succeeded",   stats.succeeded},
+                    {"reason",      stats.reason}
+                };
+                results.push_back({
+                    {"output", std::move(output_json)},
+                    {"stats",  std::move(stats_json)}
+                });
+            }
+            json response = {
+                {"game_id",   message["game_id"]},  
+                {"player_id", message["player_id"]}, 
+                {"results",   std::move(results)}
             };
 
-            _socket_server->send(output_json.dump() + '\n');
+            std::lock_guard<std::mutex> lock(_socket_mutex);
+            _socket_server->send(response.dump() + '\n');
         });
 
     _socket_server->on_recv(
@@ -44,9 +62,29 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
             _execution_pool.enqueue({
                 .task_func = [this](const json& message) 
                 { 
-                    std::string user_code = message["user_code"];
-                    std::string test_code = message["test_code"];
-                    return _executor.execute(user_code, test_code); 
+                    if (!_config.is_emulated)
+                    {
+                        std::string user_code           = message["user_code"];
+                        std::vector<std::string> inputs = message["inputs_code"];
+                        std::string test_code            = message["test_code"];
+                        return _executor.execute(user_code, inputs, test_code); 
+                    }
+                    std::vector<std::pair<ExecutionOutput, ExecutionStats>> results; 
+                    for (const auto& _ : message["inputs_code"])
+                    {
+                        results.push_back(std::pair<ExecutionOutput, ExecutionStats> {
+                            ExecutionOutput{
+                                .stdout      = "Emulated stdout\n",
+                                .stderr      = "Emulated stderr\n", 
+                            }, 
+                            ExecutionStats{
+                                .cpu_time_ms = 10,
+                                .succeeded = true, 
+                                .reason = ""
+                            }
+                        });
+                    }
+                    return results; 
                 }, 
                 .task_msg = std::move(message)
             });

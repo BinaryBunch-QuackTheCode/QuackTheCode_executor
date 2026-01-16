@@ -72,5 +72,10 @@ Config parse_config(const std::string& config_file_path)
         output.num_threads = config["num_threads"];
     }
 
+    if (config.contains("is_emulated"))
+    {
+        output.is_emulated = config["is_emulated"];
+    }
+
     return output; 
 }

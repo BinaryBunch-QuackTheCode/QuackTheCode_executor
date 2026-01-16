@@ -6,8 +6,9 @@ const client = net.createConnection('/tmp/executor.sock', () => {
     console.log('Connected to the Executor');
 
     const message = {
+        game_id: 1,
         player_id: 67,
-        user_code: "x=5\nfor i in range(999999999):\n\tx+=1\nprint('done')\n",
+        user_code: "x=5\nfor i in range(999999999999):\n\tx+=1\nprint('done')\n",
         test_code: ""
     };
 

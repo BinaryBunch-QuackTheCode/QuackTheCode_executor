@@ -14,7 +14,7 @@
  *     player_id: int,
  *     game_id: int, 
  *     user_code: str, 
- *     test_code: str
+ *     test_code: list[str]
  * }\n
  *
  * The Executor will then execute the program included in the JSON message in an sandboxed enviornment
@@ -29,7 +29,6 @@
  * }
  *
 */ 
-
 
 
 int main(int argc, char** argv)

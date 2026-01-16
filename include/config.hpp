@@ -38,6 +38,9 @@ struct Config
     std::string sandbox_cfg_path; 
 
     uint32_t num_threads; 
+
+    // Determines whether user code is actually ran or not 
+    bool is_emulated = false; 
 };
 
 

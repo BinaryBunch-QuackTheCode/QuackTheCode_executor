@@ -8,5 +8,6 @@
         "port": -1
     },
     "sandbox_config_path": "./config/sandbox.cfg",
-    "num_threads": 100
+    "num_threads": 100,
+    "is_emulated": true
 }

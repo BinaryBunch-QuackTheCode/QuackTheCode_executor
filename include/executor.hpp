@@ -4,12 +4,19 @@
 #include <atomic>
 #include <descriptors.hpp> 
 #include <string>
+#include <vector> 
 
 struct ExecutionOutput
 {
     std::string stdout;
     std::string stderr;
-    std::string sandbox_err; 
+};
+
+struct ExecutionStats
+{
+    uint32_t    cpu_time_ms;
+    bool        succeeded; 
+    std::string reason; 
 };
 
 ///@breif Executes code in a sandbox enviornment
@@ -22,9 +29,12 @@ class Executor
 
     /// @breif Execute python code
     /// @user_code Code submitted from the user  
+    /// @test_cases Code that includes the inputs to run into test_code 
     /// @test_code Test code, appened after the user code
-    /// @returns Output text from the execution
-    ExecutionOutput execute(const std::string& user_code, const std::string& test_code);
+    /// @returns Output text from the execution and stats from execution 
+    std::vector<std::pair<ExecutionOutput, ExecutionStats>> execute(const std::string& user_code, 
+                                                                    const std::vector<std::string>& test_cases_code, 
+                                                                    const std::string& test_code);
 
   private:
     /// @breif Run an isolated program with all of the necessary file descriptors. 

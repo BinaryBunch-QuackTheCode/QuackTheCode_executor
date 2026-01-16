@@ -14,9 +14,11 @@ const client = net.createConnection('/tmp/executor.sock', () => {
 
     for (let i = 0; i < TOTAL_MESSAGES; i++) {
         const message = {
+            game_id: 1,
             player_id: i,
             user_code: "print('hello world')\n",
-            test_code: ""
+            test_code: "",
+            inputs_code: ["", ""]
         };
 
         const payload = JSON.stringify(message) + '\n';

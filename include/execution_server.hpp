@@ -22,4 +22,5 @@ class ExecutionServer
     Executor                      _executor;
     ExecutionThreadPool           _execution_pool;
     std::unique_ptr<SocketServer> _socket_server = nullptr;
+    std::mutex                    _socket_mutex; 
 };
