@@ -20,6 +20,9 @@ std::vector<std::pair<ExecutionOutput, ExecutionStats>> Executor::execute(const 
     std::vector<std::pair<ExecutionOutput, ExecutionStats>> results; 
     results.reserve(test_cases_code.size()); 
 
+    std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
+    std::filesystem::create_directory(jail_dir);
+
     for (const auto& input_code : test_cases_code)
     {
         std::string full_code = user_code + '\n' + input_code + '\n' + test_code;
@@ -30,9 +33,6 @@ std::vector<std::pair<ExecutionOutput, ExecutionStats>> Executor::execute(const 
         Pipe stdin_pipe  = create_pipe();
         Pipe stdout_pipe = create_pipe();
         Pipe stderr_pipe = create_pipe();
-
-        std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
-        std::filesystem::create_directory(jail_dir);
 
         pid_t pid = fork();
 
@@ -87,10 +87,10 @@ std::vector<std::pair<ExecutionOutput, ExecutionStats>> Executor::execute(const 
             stats.reason = signal == SIGKILL ? "Time Limit Exceeded" : "Failure Unknown";
         }
 
-        std::filesystem::remove_all(jail_dir);
-
         results.push_back({ std::move(output), std::move(stats) });
     }
+
+    std::filesystem::remove_all(jail_dir);
     return results; 
 }
 
