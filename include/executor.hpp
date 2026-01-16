@@ -2,6 +2,7 @@
 
 #pragma once
 #include <atomic>
+#include <descriptors.hpp> 
 #include <string>
 
 struct ExecutionOutput
@@ -28,18 +29,14 @@ class Executor
   private:
     /// @breif Run an isolated program with all of the necessary file descriptors. 
     /// @param jail_dir Directory path of the isolated env
-    /// @param stdin_read Piped file descriptor of stdin read end
-    /// @param stdin_write Piped file descriptor of stdin write end
-    /// @param stdin_out Piped file descriptor of stdout read end
-    /// @param stdin_write Piped file descriptor of stdout write end
-    /// @param stderr_out Piped file descriptor of stderr read end
-    /// @param stderr_write Piped file descriptor of sterr write end
-    void run_jail(const std::string& jail_dir, int stdin_read, int stdin_write, int stdout_read, 
-                  int stdout_write, int stderr_read, int stderr_write);
+    /// @param stdin_pipe Stdin pipe to read from parent process
+    /// @param stdout_pipe Stdin pipe to output to parent process
+    /// @param stderr_pipe Stdin pipe to output to parent process
+    void run_jail(const std::string& jail_dir, Pipe& stdin_pipe, Pipe& stdout_pipe, Pipe& stderr_pipe); 
 
     /// @breif Generate a unique execution ID among executions (thread safe)
     /// @return Execution ID
-    unsigned int    generate_execution_id();
+    unsigned int generate_execution_id();
 
     /// @breif Set a file descriptor to non-blocking mode 
     /// @param fd Descriptor to set  
@@ -47,11 +44,11 @@ class Executor
 
     /// @breif Uses epoll to write code to stdin and read from stdout and stderr concurrently 
     /// @param code Code to write to stdin 
-    /// @param stdin_write File descriptor of stdin write end 
+    /// @param stdin_write File descriptor of stdin write end. Now owns the stdin and will close it 
     /// @param stdout_read File descriptor of stdout read end 
     /// @param stderr_read File descriptor of stderr read end 
     /// @return Execution output after reading from stdout and stderr
-    ExecutionOutput epoll_fds(const std::string& code, int stdin_write, int stdout_read, int stderr_read);
+    ExecutionOutput epoll_fds(const std::string& code, UniqueFD stdin_write, int stdout_read, int stderr_read);
 
     /// @breif Write messages to an output given a file descriptor to read from 
     /// @param output String that will be appended with result of read 
