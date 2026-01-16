@@ -13,8 +13,9 @@ int TCPSocketServer::create_socket_fd()
         throw std::system_error(errno, std::generic_category(), "socket failed");
     }
     sockaddr_in addr;
-    addr.sin_port = _port; 
-    if (inet_pton(AF_INET, _ip_addr.c_str(), &(addr.sin_addr)) < 0)
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(_port); 
+    if (inet_pton(AF_INET, _ip_addr.c_str(), &(addr.sin_addr)) <= 0)
     {
         throw std::runtime_error("Invalid IP address");
     }

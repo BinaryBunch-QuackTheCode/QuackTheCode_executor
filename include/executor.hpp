@@ -8,6 +8,7 @@ struct ExecutionOutput
 {
     std::string stdout;
     std::string stderr;
+    std::string sandbox_err; 
 };
 
 class Executor

@@ -15,16 +15,19 @@ void SocketServer::run()
 
     _socket_fd = create_socket_fd();
 
-    _client_fd = accept(_socket_fd, nullptr, nullptr);
-
-    if (_client_fd < 0)
+    while (true)
     {
-        throw std::system_error(errno, std::generic_category(), "accept failed");
+        _client_fd = accept(_socket_fd, nullptr, nullptr);
+
+        if (_client_fd < 0)
+        {
+            throw std::system_error(errno, std::generic_category(), "accept failed");
+        }
+
+        handle_client(_client_fd);
+
+        close(_client_fd);
     }
-
-    handle_client(_client_fd);
-
-    close(_client_fd);
 }
 
 void SocketServer::handle_client(int client_fd)

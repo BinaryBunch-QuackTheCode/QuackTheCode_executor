@@ -2,7 +2,11 @@
 {
     "socket": {
         "socket_type": "unix", 
-        "path": "/tmp/executor.sock"
+        "path": "/tmp/executor.sock",
+
+        "ip_addr": "",
+        "port": -1
     },
-    "sandbox_config_path": "./config/sandbox.cfg"
+    "sandbox_config_path": "./config/sandbox.cfg",
+    "num_threads": 100
 }

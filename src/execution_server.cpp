@@ -11,7 +11,7 @@
 
 using json = nlohmann::json;
 
-ExecutionServer::ExecutionServer(const Config& config) : _config(config), _executor(config.sandbox_cfg_path)
+ExecutionServer::ExecutionServer(const Config& config) : _config(config), _executor(config.sandbox_cfg_path), _execution_pool(config.num_threads)
 {
     switch (config.socket_type)
     {
@@ -29,10 +29,11 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
         [this](json message, ExecutionOutput output) 
         {
             json output_json = {
-                {"game_id",   message["game_id"]},  
-                {"player_id", message["player_id"]}, 
-                {"stdout",    std::move(output.stdout)}, 
-                {"stderr",    std::move(output.stderr)}};
+                {"game_id",     message["game_id"]},  
+                {"player_id",   message["player_id"]}, 
+                {"stdout",      std::move(output.stdout)}, 
+                {"stderr",      std::move(output.stderr)}, 
+                {"sandbox_err", std::move(output.sandbox_err)}};
 
             _socket_server->send(output_json.dump() + '\n');
         });

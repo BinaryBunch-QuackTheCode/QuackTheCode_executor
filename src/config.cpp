@@ -2,6 +2,7 @@
 
 #include "config.hpp"
 #include <fstream> 
+#include <thread> 
 #include <nlohmann/json.hpp> 
 
 
@@ -61,5 +62,15 @@ Config parse_config(const std::string& config_file_path)
         throw std::invalid_argument("missing sandbox config path");
     }
     output.sandbox_cfg_path = config["sandbox_config_path"];
+
+    if (!config.contains("num_threads") || config["num_threads"].empty())
+    {
+        output.num_threads = std::thread::hardware_concurrency();
+    }
+    else
+    {
+        output.num_threads = config["num_threads"];
+    }
+
     return output; 
 }
