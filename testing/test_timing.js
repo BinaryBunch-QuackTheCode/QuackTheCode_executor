@@ -8,14 +8,14 @@ let startTime = null;
 let buffer = '';
 
 const client = net.createConnection('/tmp/executor.sock', () => {
-    console.log('Connected to the C++ Executor!');
+    console.log('Connected to the Executor');
 
     startTime = process.hrtime.bigint();
 
     for (let i = 0; i < TOTAL_MESSAGES; i++) {
         const message = {
             player_id: i,
-            user_code: "x=5\nfor i in range(9999999):\n\tx+=1\n",
+            user_code: "print('hello world')\n",
             test_code: ""
         };
 
@@ -32,6 +32,7 @@ client.on('data', (chunk) => {
         if (idx === -1) break;
 
         const line = buffer.slice(0, idx);
+        console.log(line);
         buffer = buffer.slice(idx + 1);
 
         if (!line) continue;
