@@ -21,9 +21,10 @@
  * The Executor will then execute the program included in the JSON message in an sandboxed enviornment
  *
  * The Executor will then send JSON results back through the connected socket
- * The response message will be in the following form: 
+ * The response message will be in the following form on successful execution: 
  * {
  *      
+ *     status: "OK"
  *     player_id: int
  *     game_id: int
  *     results: [
@@ -37,6 +38,12 @@
 *            stderr: str
  *       }
  *     ]
+ * }
+ *
+ * If an error occurs, the following message will be sent 
+ * { 
+ *    status: "ERROR"
+ *    message: str
  * }
  *
 */ 
