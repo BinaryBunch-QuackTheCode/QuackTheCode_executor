@@ -28,15 +28,13 @@
  *     game_id: int
  *     results: [
  *       { 
- *          stats: {
- *              cpu_time_ms: uint, 
- *              succedeed: bool
- *              reason: str
- *          }, 
- *          output: {
- *              stdout: str, 
- *              stderr: str
- *          }
+*            cpu_time_ms: uint, 
+*            succedeed: bool
+*            time_limit_exceeded: bool
+*            tests_failed: bool 
+*            unknown_error: bool
+*            stdout: str, 
+*            stderr: str
  *       }
  *     ]
  * }

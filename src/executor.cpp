@@ -1,29 +1,28 @@
 
 #include "executor.hpp"
 #include "descriptors.hpp"
-#include <nlohmann/json.hpp> 
 #include <fcntl.h>
-#include <sys/resource.h> 
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <sys/epoll.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <unistd.h>
 
-using json = nlohmann::json; 
+using json = nlohmann::json;
 
-std::vector<std::pair<ExecutionOutput, ExecutionStats>> Executor::execute(const std::string& user_code, 
-                                                                          const std::vector<std::string>& test_cases_code, 
-                                                                          const std::string& test_code)
+std::vector<ExecutionResult> Executor::execute(const std::string& user_code, const std::vector<std::string>& inputs_code,
+                                               const std::string& test_code)
 {
-    std::vector<std::pair<ExecutionOutput, ExecutionStats>> results; 
-    results.reserve(test_cases_code.size()); 
+    std::vector<ExecutionResult> results;
+    results.reserve(inputs_code.size());
 
     std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
     std::filesystem::create_directory(jail_dir);
 
-    for (const auto& input_code : test_cases_code)
+    for (const auto& input_code : inputs_code)
     {
         std::string full_code = user_code + '\n' + input_code + '\n' + test_code;
 
@@ -47,51 +46,34 @@ std::vector<std::pair<ExecutionOutput, ExecutionStats>> Executor::execute(const 
             _exit(1);
         }
 
-        stdin_pipe.read_end.release(); 
-        stdout_pipe.write_end.release(); 
-        stderr_pipe.write_end.release(); 
-
         // parent
-        auto output = epoll_fds(full_code, std::move(stdin_pipe.write_end), stdout_pipe.read_end.get(), stderr_pipe.read_end.get());
 
-        int status;
-        rusage ru; 
+        stdin_pipe.read_end.release();
+        stdout_pipe.write_end.release();
+        stderr_pipe.write_end.release();
+
+        auto [standard_out, standard_err] =
+            epoll_fds(full_code, std::move(stdin_pipe.write_end), stdout_pipe.read_end.get(), stderr_pipe.read_end.get());
+
+        int    status;
+        rusage ru;
         wait4(pid, &status, 0, &ru);
 
-        // Check cpu time 
-        uint32_t cpu_time_ms =
-                    ru.ru_utime.tv_sec * 1000 +
-                    ru.ru_utime.tv_usec / 1000;
+        // Check cpu time
+        ExecutionResult result = {
+            .cpu_time_ms = ru.ru_utime.tv_sec * 1000 + ru.ru_utime.tv_usec / 1000,
+            .stdout = std::move(standard_out), 
+            .stderr = std::move(standard_err)
+        };
 
-        
-        ExecutionStats stats = { .cpu_time_ms = cpu_time_ms }; 
+        parse_status(status, result);
 
-        // Check results 
-        if (WIFEXITED(status))
-        {
-            int exit_code = WEXITSTATUS(status);
-            if (exit_code != 0)
-            {
-                stats.succeeded = false; 
-                stats.reason = "Test Cases Failed";
-            }
-            else
-            {
-                stats.succeeded = true; 
-            }
-        }
-        else if (WIFSIGNALED(status))
-        {
-            stats.succeeded = false; 
-            int signal = WTERMSIG(status);
-            stats.reason = signal == SIGKILL ? "Time Limit Exceeded" : "Failure Unknown";
-        }
-
-        results.push_back({ std::move(output), std::move(stats) });
+        // Check results
+        results.push_back(result);
     }
 
     std::filesystem::remove_all(jail_dir);
-    return results; 
+    return results;
 }
 
 bool Executor::read_fd(std::string* output, char* read_buf, size_t read_buf_size, int fd)
@@ -133,7 +115,7 @@ void Executor::run_jail(const std::string& jail_dir, Pipe& stdin_pipe, Pipe& std
            "/usr/local/bin/python3", "-", (char*)nullptr);
 }
 
-ExecutionOutput Executor::epoll_fds(const std::string& code, UniqueFD stdin_write, int stdout_read, int stderr_read)
+std::pair<std::string, std::string> Executor::epoll_fds(const std::string& code, UniqueFD stdin_write, int stdout_read, int stderr_read)
 {
     set_nonblocking(stdin_write.get());
     set_nonblocking(stdout_read);
@@ -181,7 +163,7 @@ ExecutionOutput Executor::epoll_fds(const std::string& code, UniqueFD stdin_writ
                     written += w;
                     if (written == code.size())
                     {
-                        stdin_write.release(); 
+                        stdin_write.release();
                         stdin_done = true;
                     }
                 }
@@ -197,7 +179,7 @@ ExecutionOutput Executor::epoll_fds(const std::string& code, UniqueFD stdin_writ
         }
     }
 
-    return {.stdout = std::move(stdout_buf), .stderr = std::move(stderr_buf)};
+    return { stdout_buf, stderr_buf };
 }
 
 void Executor::set_nonblocking(int fd)
@@ -208,17 +190,21 @@ void Executor::set_nonblocking(int fd)
 
 unsigned int Executor::generate_execution_id() { return _jails++; }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void Executor::parse_status(int status, ExecutionResult& result)
+{
+    if (WIFEXITED(status))
+    {
+        if (WEXITSTATUS(status) == 0)
+            result.succeeded = true;
+        else
+            result.tests_failed = true;
+    }
+    else if (WIFSIGNALED(status))
+    {
+        int signal = WTERMSIG(status);
+        if (WTERMSIG(status) == SIGKILL)
+            result.time_limit_exceeded = true;
+        else
+            result.unknown_error = true;
+    }
+}

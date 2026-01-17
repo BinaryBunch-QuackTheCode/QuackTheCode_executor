@@ -26,7 +26,15 @@ void SocketServer::run()
             throw std::system_error(errno, std::generic_category(), "accept failed");
         }
 
-        handle_client(_client_fd);
+        try
+        {
+            handle_client(_client_fd);
+        }
+        catch (const std::exception& err)
+        {
+            if (_on_err_func != nullptr)
+                _on_err_func(err.what());
+        }
 
         close(_client_fd);
     }

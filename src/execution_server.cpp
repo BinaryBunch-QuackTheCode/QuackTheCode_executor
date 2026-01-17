@@ -26,30 +26,27 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
     }
 
     _execution_pool.on_execution_complete(
-        [this](json message, std::vector<std::pair<ExecutionOutput, ExecutionStats>> outputs) 
+        [this](json message, std::vector<ExecutionResult> results) 
         {
-            std::vector<json> results; 
-            for (const auto [output, stats] : outputs)
+            json results_json = json::array(); 
+            for (const auto& result : results)
             {
-                json output_json = {
-                    {"stdout", std::move(output.stdout)}, 
-                    {"stderr", std::move(output.stderr)}, 
-                };
-
-                json stats_json = { 
-                    {"cpu_time_ms", stats.cpu_time_ms},
-                    {"succeeded",   stats.succeeded},
-                    {"reason",      stats.reason}
-                };
-                results.push_back({
-                    {"output", std::move(output_json)},
-                    {"stats",  std::move(stats_json)}
+                results_json.push_back({
+                    {"cpu_time_ms",         result.cpu_time_ms},
+                    {"stdout",              std::move(result.stdout)}, 
+                    {"stderr",              std::move(result.stderr)}, 
+                    {"succeeded",           result.succeeded},
+                    {"time_limit_exceeded", result.time_limit_exceeded},
+                    {"tests_failed",        result.tests_failed}, 
+                    {"unknown_error",       result.unknown_error},
                 });
-            }
+            };
+
             json response = {
+                {"status",    "OK"},
                 {"game_id",   message["game_id"]},  
                 {"player_id", message["player_id"]}, 
-                {"results",   std::move(results)}
+                {"results",   std::move(results_json)}
             };
 
             std::lock_guard<std::mutex> lock(_socket_mutex);
@@ -59,34 +56,70 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
     _socket_server->on_recv(
         [this](json message)
         {
+            if (!validate_json_msg(message))
+            {
+                json bad_msg = {
+                    { "status", "ERROR", },
+                    { "message", "Invalid parameters in JSON message"}
+                };
+                std::lock_guard<std::mutex> lock(_socket_mutex);
+                _socket_server->send(bad_msg.dump() + '\n');
+                return;
+            }
+
             _execution_pool.enqueue({
                 .task_func = [this](const json& message) 
                 { 
                     if (!_config.is_emulated)
                     {
-                        std::string user_code           = message["user_code"];
-                        std::vector<std::string> inputs = message["inputs_code"];
-                        std::string test_code            = message["test_code"];
-                        return _executor.execute(user_code, inputs, test_code); 
+                        return _executor.execute(message["user_code"], message["inputs_code"], message["test_code"]); 
                     }
-                    std::vector<std::pair<ExecutionOutput, ExecutionStats>> results; 
-                    for (const auto& _ : message["inputs_code"])
-                    {
-                        results.push_back(std::pair<ExecutionOutput, ExecutionStats> {
-                            ExecutionOutput{
-                                .stdout      = "Emulated stdout\n",
-                                .stderr      = "Emulated stderr\n", 
-                            }, 
-                            ExecutionStats{
-                                .cpu_time_ms = 10,
-                                .succeeded = true, 
-                                .reason = ""
-                            }
-                        });
-                    }
-                    return results; 
+                    return emulated_result(message["inputs_code"].size());
                 }, 
                 .task_msg = std::move(message)
             });
         });
+
+    auto on_err = [this](const std::string& err_msg) {
+        json err = {
+            { "status", "ERROR", },
+            { "message", err_msg}
+        };
+        std::lock_guard<std::mutex> lock(_socket_mutex);
+        _socket_server->send(err.dump() + '\n');
+    };
+
+    _socket_server->on_err(on_err);
+
+    _execution_pool.on_err(on_err);
+
+}
+
+
+std::vector<ExecutionResult> ExecutionServer::emulated_result(size_t num_tests)
+{
+    std::vector<ExecutionResult> results; 
+    for (size_t _ = 0; _ < num_tests; _++)
+    {
+        results.push_back(ExecutionResult{
+            .cpu_time_ms = 10,
+            .succeeded   = true, 
+            .stdout      = "Emulated stdout\n",
+            .stderr      = "Emulated stderr\n", 
+        });
+    }
+    return results; 
+}
+
+
+bool ExecutionServer::validate_json_msg(const json& msg)
+{
+    if (!msg.contains("player_id") || !msg["player_id"].is_number())         return false; 
+    if (!msg.contains("game_id") || !msg["game_id"].is_number())             return false; 
+    if (!msg.contains("user_code") || !msg["user_code"].is_string())         return false; 
+    if (!msg.contains("test_code") || !msg["test_code"].is_string())         return false; 
+    if (!msg.contains("inputs_code") || !msg["inputs_code"].is_array())      return false; 
+    if (msg["inputs_code"].size() > 0 && !msg["inputs_code"][0].is_string()) return false;
+
+    return true; 
 }

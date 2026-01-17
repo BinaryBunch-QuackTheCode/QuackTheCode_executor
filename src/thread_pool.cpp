@@ -26,7 +26,15 @@ ExecutionThreadPool::ExecutionThreadPool(size_t num_threads)
                         task = std::move(_tasks.front());
                         _tasks.pop();
                     }
-                    _on_execution_complete_func(std::move(task.task_msg), task.task_func(task.task_msg));
+                    try
+                    {
+                        _on_execution_complete_func(std::move(task.task_msg), task.task_func(task.task_msg));
+                    }
+                    catch (const std::exception& err)
+                    {
+                        if (_on_err_func != nullptr)
+                            _on_err_func(err.what());
+                    }
                 }
             });
     }
@@ -55,3 +63,4 @@ void ExecutionThreadPool::enqueue(Task task)
     }
     _cv.notify_one();
 }
+
