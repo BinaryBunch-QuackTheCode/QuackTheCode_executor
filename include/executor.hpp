@@ -20,6 +20,13 @@ struct ExecutionResult
     std::string err_msg; 
 };
 
+struct ExecutionJob
+{
+    std::string user_code; 
+    std::vector<std::string> inputs_code; 
+    std::string test_code; 
+};
+
 ///@breif Executes code in a sandbox enviornment
 class Executor
 {
@@ -29,11 +36,9 @@ class Executor
     Executor(const std::string& config_path) : _config_path(config_path) {}
 
     /// @breif Execute python code
-    /// @user_code Code submitted from the user
-    /// @inputs_Code that includes the inputs to run into test_code
-    /// @test_code Test code, appened after the user code
+    /// @job all inputs necceessary to execute the program 
     /// @returns Output text from the execution and stats from execution
-    std::vector<ExecutionResult> execute(const std::string& user_code, const std::vector<std::string>& inputs_code, const std::string& test_code);
+    std::vector<ExecutionResult> execute(const ExecutionJob& job);
 
   private:
     /// @breif Run an isolated program with all of the necessary file descriptors.

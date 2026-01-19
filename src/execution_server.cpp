@@ -38,6 +38,7 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config){
             throw std::invalid_argument("Unsupported execution pool type");
     }
 
+
     _execution_pool->on_execution_complete(
         [this](json message, std::vector<ExecutionResult> results) 
         {
@@ -64,6 +65,16 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config){
 
             std::lock_guard<std::mutex> lock(_socket_mutex);
             _socket_server->send(response.dump() + '\n');
+        });
+
+    _execution_pool->json_to_execution_job(
+        [](const json& message)
+        {
+            return ExecutionJob{
+                .user_code   = message["user_code"],
+                .inputs_code = message["inputs_code"],
+                .test_code   = message["test_code"]
+            };
         });
 
     _socket_server->on_recv(

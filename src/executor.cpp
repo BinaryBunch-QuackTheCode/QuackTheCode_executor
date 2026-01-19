@@ -13,18 +13,17 @@
 
 using json = nlohmann::json;
 
-std::vector<ExecutionResult> Executor::execute(const std::string& user_code, const std::vector<std::string>& inputs_code,
-                                               const std::string& test_code)
+std::vector<ExecutionResult> Executor::execute(const ExecutionJob& job)
 {
     std::vector<ExecutionResult> results;
-    results.reserve(inputs_code.size());
+    results.reserve(job.inputs_code.size());
 
     std::string jail_dir = "/tmp/jail_" + std::to_string(generate_execution_id());
     std::filesystem::create_directory(jail_dir);
 
-    for (const auto& input_code : inputs_code)
+    for (const auto& input_code : job.inputs_code)
     {
-        std::string full_code = user_code + '\n' + input_code + '\n' + test_code;
+        std::string full_code = job.user_code + '\n' + input_code + '\n' + job.test_code;
 
         // The plan is to pipe in, out and err so the parent process can
         // write to stdin and read from stdout and stderr as the child executes the isolated python code

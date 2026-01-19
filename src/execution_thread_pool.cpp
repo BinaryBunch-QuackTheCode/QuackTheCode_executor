@@ -29,8 +29,7 @@ ExecutionThreadPool::ExecutionThreadPool(const Executor& exe, size_t num_threads
                     }
                     try
                     {
-                        auto result = _executor.execute(message["user_code"], message["inputs_code"], 
-                                                        message["test_code"]);
+                        auto result = _executor.execute(_json_to_job_func(message));
 
                         _on_execution_complete_func(std::move(message), result);
                     }
