@@ -72,10 +72,24 @@ Config parse_config(const std::string& config_file_path)
         output.num_threads = config["num_threads"];
     }
 
-    if (config.contains("is_emulated"))
+    if (!config.contains("execution_pool_type"))
     {
-        output.is_emulated = config["is_emulated"];
+        throw std::invalid_argument("missing execution pool type");
     }
+
+    if (config["execution_pool_type"] == "thread_pool")
+    {
+        output.execution_pool_type = ExecutionPoolType::THREAD_POOL;
+    }
+    else if (config["execution_pool_type"] == "emulated")
+    {
+        output.execution_pool_type = ExecutionPoolType::EMULATED;
+    }
+    else if (config["execution_pool_type"] == "redis")
+    {
+        output.execution_pool_type = ExecutionPoolType::REDIS;
+    }
+
 
     return output; 
 }

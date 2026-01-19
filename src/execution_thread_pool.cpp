@@ -1,10 +1,11 @@
 
-#include "thread_pool.hpp"
+#include "execution_thread_pool.hpp"
 #include <mutex>
 
-ExecutionThreadPool::ExecutionThreadPool(size_t num_threads)
-{
+using json = nlohmann::json;
 
+ExecutionThreadPool::ExecutionThreadPool(const Executor& exe, size_t num_threads) : _executor(exe)
+{
     for (size_t i = 0; i < num_threads; ++i)
     {
         _workers.emplace_back(
@@ -12,7 +13,7 @@ ExecutionThreadPool::ExecutionThreadPool(size_t num_threads)
             {
                 while (true)
                 {
-                    Task task; 
+                    json message; 
                     {
                         std::unique_lock<std::mutex> lock(_queue_mutex);
 
@@ -23,12 +24,15 @@ ExecutionThreadPool::ExecutionThreadPool(size_t num_threads)
                             return;
                         }
 
-                        task = std::move(_tasks.front());
+                        message = std::move(_tasks.front());
                         _tasks.pop();
                     }
                     try
                     {
-                        _on_execution_complete_func(std::move(task.task_msg), task.task_func(task.task_msg));
+                        auto result = _executor.execute(message["user_code"], message["inputs_code"], 
+                                                        message["test_code"]);
+
+                        _on_execution_complete_func(std::move(message), result);
                     }
                     catch (const std::exception& err)
                     {
@@ -55,11 +59,11 @@ ExecutionThreadPool::~ExecutionThreadPool()
     }
 }
 
-void ExecutionThreadPool::enqueue(Task task)
+void ExecutionThreadPool::enqueue(const json& message)
 {
     {
         std::unique_lock<std::mutex> lock(_queue_mutex);
-        _tasks.emplace(std::move(task));
+        _tasks.push(message);
     }
     _cv.notify_one();
 }

@@ -1,6 +1,8 @@
 
 #include "execution_server.hpp"
 #include "executor.hpp"
+#include "execution_thread_pool.hpp"
+#include "execution_emulated_pool.hpp"
 #include "unix_socket_server.hpp"
 #include "tcp_socket_server.hpp"
 
@@ -11,8 +13,7 @@
 
 using json = nlohmann::json;
 
-ExecutionServer::ExecutionServer(const Config& config) : _config(config), _executor(config.sandbox_cfg_path), _execution_pool(config.num_threads)
-{
+ExecutionServer::ExecutionServer(const Config& config) : _config(config){
     switch (config.socket_type)
     {
     case SocketType::UNIX:
@@ -25,7 +26,19 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
         throw std::invalid_argument("Unsupported socket type");
     }
 
-    _execution_pool.on_execution_complete(
+    switch (config.execution_pool_type)
+    {
+        case ExecutionPoolType::THREAD_POOL: 
+            _execution_pool = std::make_unique<ExecutionThreadPool>(config.sandbox_cfg_path, config.num_threads);
+            break;
+        case ExecutionPoolType::EMULATED: 
+            _execution_pool = std::make_unique<ExecutionEmulatedPool>(); 
+            break;
+        default: 
+            throw std::invalid_argument("Unsupported execution pool type");
+    }
+
+    _execution_pool->on_execution_complete(
         [this](json message, std::vector<ExecutionResult> results) 
         {
             json results_json = json::array(); 
@@ -67,23 +80,14 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
                 return;
             }
 
-            _execution_pool.enqueue({
-                .task_func = [this](const json& message) 
-                { 
-                    if (!_config.is_emulated)
-                    {
-                        return _executor.execute(message["user_code"], message["inputs_code"], message["test_code"]); 
-                    }
-                    return emulated_result(message["inputs_code"].size());
-                }, 
-                .task_msg = std::move(message)
-            });
+            _execution_pool->enqueue(message);
         });
+
 
     auto on_err = [this](const std::string& err_msg) {
         json err = {
-            { "status", "ERROR", },
-            { "message", err_msg}
+            { "status", "ERROR" },
+            { "message", err_msg }
         };
         std::lock_guard<std::mutex> lock(_socket_mutex);
         _socket_server->send(err.dump() + '\n');
@@ -91,24 +95,7 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config), _execu
 
     _socket_server->on_err(on_err);
 
-    _execution_pool.on_err(on_err);
-
-}
-
-
-std::vector<ExecutionResult> ExecutionServer::emulated_result(size_t num_tests)
-{
-    std::vector<ExecutionResult> results; 
-    for (size_t _ = 0; _ < num_tests; _++)
-    {
-        results.push_back(ExecutionResult{
-            .cpu_time_ms = 10,
-            .succeeded   = true, 
-            .stdout      = "Emulated stdout\n",
-            .stderr      = "Emulated stderr\n", 
-        });
-    }
-    return results; 
+    _execution_pool->on_err(on_err);
 }
 
 

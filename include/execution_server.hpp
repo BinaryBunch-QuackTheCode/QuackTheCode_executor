@@ -1,14 +1,13 @@
 
 #pragma once
 #include "config.hpp"
-#include "executor.hpp"
+#include "execution_pool.hpp"
 #include "socket_server.hpp"
-#include "thread_pool.hpp"
 #include <memory>
-#include <nlohmann/json.hpp> 
+#include <nlohmann/json.hpp>
 
 /// @breif Execution server that manages the server socket, execution pool and conifg
-///       Interface to the executor program 
+///        Interface to the executor program
 class ExecutionServer
 {
 
@@ -20,11 +19,10 @@ class ExecutionServer
   private:
     Config _config;
 
-    Executor                      _executor;
-    ExecutionThreadPool           _execution_pool;
-    std::unique_ptr<SocketServer> _socket_server = nullptr;
-    std::mutex                    _socket_mutex; 
+    std::unique_ptr<ExecutionPool> _execution_pool = nullptr;
+    std::unique_ptr<SocketServer>  _socket_server  = nullptr;
+    std::mutex                     _socket_mutex;
 
-    std::vector<ExecutionResult> emulated_result(size_t num_tests); 
-    bool validate_json_msg(const nlohmann::json& msg);
+    std::vector<ExecutionResult> emulated_result(size_t num_tests);
+    bool                         validate_json_msg(const nlohmann::json& msg);
 };
