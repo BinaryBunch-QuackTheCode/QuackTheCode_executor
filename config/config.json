@@ -9,5 +9,5 @@
     },
     "sandbox_config_path": "./config/sandbox.cfg",
     "num_threads": 100,
-    "is_emulated": true
+    "execution_pool_type": "thread_pool"
 }

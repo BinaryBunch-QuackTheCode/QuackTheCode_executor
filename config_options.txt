@@ -1,0 +1,16 @@
+{
+
+"socket": {
+    "socket_type": <str: "unix"> <str: "tcp"> 
+    "path": <str: path used to unix socket>  
+    "ip_addr": <str: host ip address for tcp socket>
+    "port": <uint16: host port for tcp socket> 
+}
+
+"sandbox_config_path": <str: path to nsjail config> 
+
+"execution_pool_type": <str: "thread_pool"> <str: "emulated"> <str: "redis"> 
+
+"num_threads": <uint: number of threads if execution pool is of type thread_pool> 
+
+}
