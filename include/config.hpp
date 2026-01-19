@@ -23,9 +23,17 @@ struct TCPSocketArgs
     uint16_t port; 
 };
 
+enum class ExecutionPoolType
+{
+    THREAD_POOL, 
+    EMULATED, 
+    REDIS
+};
+
 /// @breif Configuration for the execution server.  
 struct Config
 {
+    ExecutionPoolType execution_pool_type; 
 
     // Byte stream socket type 
     SocketType socket_type; 
@@ -39,8 +47,6 @@ struct Config
 
     uint32_t num_threads; 
 
-    // Determines whether user code is actually ran or not 
-    bool is_emulated = false; 
 };
 
 
