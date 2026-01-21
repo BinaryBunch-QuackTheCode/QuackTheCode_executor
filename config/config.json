@@ -1,13 +1,1 @@
-
-{
-    "socket": {
-        "socket_type": "unix", 
-        "path": "/tmp/executor.sock",
-
-        "ip_addr": "",
-        "port": -1
-    },
-    "sandbox_config_path": "./config/sandbox.cfg",
-    "num_threads": 100,
-    "execution_pool_type": "thread_pool"
-}
+{"socket": {"socket_type": "unix", "path": "/tmp/executor.sock"}, "sandbox_config_path": "config/sandbox.cfg", "execution_pool_type": "emulated"}
