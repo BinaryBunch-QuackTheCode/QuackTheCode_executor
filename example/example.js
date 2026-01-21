@@ -2,10 +2,6 @@
 import net from 'net';
 
 
-
-
-
-
 const executor = net.createConnection('/tmp/executor.sock');
 
 executor.on('end', () => {
