@@ -37,15 +37,6 @@ const setExecutorOnMessage = (executor, onMessage) => {
             if (!line) continue;
         }
     });
-
-
-    executor.on('end', () => {
-        console.log('Disconnected from executor');
-    });
-
-    executor.on('error', (err) => {
-        console.error('Socket error:', err.message);
-    });
 }
 
 const requestCodeExecution = (executor, message) => {
