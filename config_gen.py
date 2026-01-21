@@ -1,6 +1,7 @@
 
 import json 
 import sys
+import subprocess 
 
 def generate_config(config_path: str): 
     config = {}
@@ -49,6 +50,9 @@ def generate_config(config_path: str):
 if __name__ == "__main__": 
     try: 
         generate_config(sys.argv[1] if len(sys.argv) > 1 else "config/config.json")
+        answer = input("Restart system service? [y/n]")
+        if answer == "y":
+            subprocess.run(["systemctl", "restart", "executor"])
     except Exception as e: 
         print("Invalid option")
 
