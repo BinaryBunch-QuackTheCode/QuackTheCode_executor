@@ -3,6 +3,7 @@
 #include "socket_server.hpp"
 #include <sys/socket.h>
 #include <unistd.h>
+#include <iostream> 
 
 using json = nlohmann::json;
 
@@ -21,6 +22,9 @@ void SocketServer::run()
 
         _client_fd = accept(_socket_fd, nullptr, nullptr);
 
+#ifdef DEBUG_BUILD
+        std::cout << "Accepted Client" << std::endl;
+#endif
         if (_client_fd < 0)
         {
             throw std::system_error(errno, std::generic_category(), "accept failed");

@@ -5,6 +5,7 @@
 #include "executor.hpp"
 #include "tcp_socket_server.hpp"
 #include "unix_socket_server.hpp"
+#include <iostream> 
 
 #include <nlohmann/json.hpp>
 
@@ -70,13 +71,15 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config)
     _socket_server->on_recv(
         [this](json message)
         {
+#ifdef DEBUG_BUILD
+            std::cout << "Received message: " << message.dump(4) << std::endl;
+#endif
             if (!validate_json_msg(message))
             {
-                json                        bad_msg = {{
-                                    "status",
-                                    "ERROR",
-                                },
-                                                       {"message", "Invalid parameters in JSON message"}};
+                json bad_msg = {
+                    { "status","ERROR" },
+                    {"message", "Invalid parameters in JSON message"}
+                };
                 std::lock_guard<std::mutex> lock(_socket_mutex);
                 _socket_server->send(bad_msg.dump() + '\n');
                 return;

@@ -1,5 +1,6 @@
 
 #include "executor.hpp"
+#include <iostream> 
 #include "descriptors.hpp"
 #include <fcntl.h>
 #include <filesystem>
@@ -191,19 +192,18 @@ unsigned int Executor::generate_execution_id() { return _jails++; }
 
 void Executor::parse_status(int status, ExecutionResult& result)
 {
+    constexpr int timeout_status_code = 35072; 
     if (WIFEXITED(status))
     {
         if (WEXITSTATUS(status) == 0)
             result.succeeded = true;
+        else if (status == timeout_status_code)
+            result.time_limit_exceeded = true;
         else
             result.tests_failed = true;
     }
     else if (WIFSIGNALED(status))
     {
-        int signal = WTERMSIG(status);
-        if (WTERMSIG(status) == SIGKILL)
-            result.time_limit_exceeded = true;
-        else
-            result.unknown_error = true;
+        result.unknown_error = true;
     }
 }
