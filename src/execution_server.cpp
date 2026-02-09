@@ -1,8 +1,9 @@
 
 #include "execution_server.hpp"
 #include "execution_emulated_pool.hpp"
+#include "execution_redis_pool.hpp" 
 #include "execution_thread_pool.hpp"
-#include "executor.hpp"
+#include "execmsg.hpp"
 #include "tcp_socket_server.hpp"
 #include "unix_socket_server.hpp"
 #include <iostream> 
@@ -16,6 +17,8 @@ using json = nlohmann::json;
 
 ExecutionServer::ExecutionServer(const Config& config) : _config(config)
 {
+
+
     switch (config.socket_type)
     {
     case SocketType::UNIX:
@@ -36,37 +39,19 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config)
     case ExecutionPoolType::EMULATED:
         _execution_pool = std::make_unique<ExecutionEmulatedPool>();
         break;
+    case ExecutionPoolType::REDIS: 
+        _execution_pool = std::make_unique<ExecutionRedisPool>("localhost", 6379);
+        break;
     default:
         throw std::invalid_argument("Unsupported execution pool type");
     }
 
     _execution_pool->on_execution_complete(
-        [this](json message, std::vector<ExecutionResult> results)
+        [this](const json& result)
         {
-            json results_json = json::array();
-            for (const auto& result : results)
-            {
-                results_json.push_back({
-                    {"cpu_time_ms", result.cpu_time_ms},
-                    {"stdout", std::move(result.stdout)},
-                    {"stderr", std::move(result.stderr)},
-                    {"succeeded", result.succeeded},
-                    {"time_limit_exceeded", result.time_limit_exceeded},
-                    {"tests_failed", result.tests_failed},
-                    {"unknown_error", result.unknown_error},
-                });
-            };
-
-            json response = {
-                {"status", "OK"}, {"game_id", message["game_id"]}, {"player_id", message["player_id"]}, {"results", std::move(results_json)}};
-
             std::lock_guard<std::mutex> lock(_socket_mutex);
-            _socket_server->send(response.dump() + '\n');
+            _socket_server->send(result.dump() + '\n');
         });
-
-    _execution_pool->json_to_execution_job(
-        [](const json& message)
-        { return ExecutionJob{.user_code = message["user_code"], .inputs_code = message["inputs_code"], .test_code = message["test_code"]}; });
 
     _socket_server->on_recv(
         [this](json message)
@@ -74,46 +59,23 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config)
 #ifdef DEBUG_BUILD
             std::cout << "Received message: " << message.dump(4) << std::endl;
 #endif
-            if (!validate_json_msg(message))
+            if (!execmsg::validate_message(message))
             {
-                json bad_msg = {
-                    { "status","ERROR" },
-                    {"message", "Invalid parameters in JSON message"}
-                };
                 std::lock_guard<std::mutex> lock(_socket_mutex);
-                _socket_server->send(bad_msg.dump() + '\n');
+                _socket_server->send(execmsg::create_error_message("Invalid parameters in JSON message").dump() + '\n');
                 return;
             }
 
             _execution_pool->enqueue(message);
         });
 
-    auto on_err = [this](const std::string& err_msg)
-    {
-        json                        err = {{"status", "ERROR"}, {"message", err_msg}};
-        std::lock_guard<std::mutex> lock(_socket_mutex);
-        _socket_server->send(err.dump() + '\n');
-    };
+    _socket_server->on_err(
+        [this](const std::string& err_msg)
+        {
+            std::lock_guard<std::mutex> lock(_socket_mutex);
+            _socket_server->send(execmsg::create_error_message(err_msg).dump() + '\n');
+        }
+    );
 
-    _socket_server->on_err(on_err);
-
-    _execution_pool->on_err(on_err);
 }
 
-bool ExecutionServer::validate_json_msg(const json& msg)
-{
-    if (!msg.contains("player_id"))
-        return false;
-    if (!msg.contains("game_id"))
-        return false;
-    if (!msg.contains("user_code") || !msg["user_code"].is_string())
-        return false;
-    if (!msg.contains("test_code") || !msg["test_code"].is_string())
-        return false;
-    if (!msg.contains("inputs_code") || !msg["inputs_code"].is_array())
-        return false;
-    if (msg["inputs_code"].size() > 0 && !msg["inputs_code"][0].is_string())
-        return false;
-
-    return true;
-}

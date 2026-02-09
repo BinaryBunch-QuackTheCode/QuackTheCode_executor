@@ -21,4 +21,5 @@ add_executable(qtc_executor
 
 include_directories(./include ./libs)
 
+target_link_libraries(qtc_executor -lhiredis)
 
