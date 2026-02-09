@@ -1,6 +1,7 @@
 
 #include "execution_thread_pool.hpp"
 #include <mutex>
+#include "execmsg.hpp"
 
 using json = nlohmann::json;
 
@@ -29,9 +30,9 @@ ExecutionThreadPool::ExecutionThreadPool(const Executor& exe, size_t num_threads
                     }
                     try
                     {
-                        auto result = _executor.execute(_json_to_job_func(message));
+                        auto result = _executor.execute(execmsg::message_to_job(message));
 
-                        _on_execution_complete_func(std::move(message), result);
+                        _on_execution_complete_func(execmsg::results_to_response(message, result));
                     }
                     catch (const std::exception& err)
                     {
