@@ -31,20 +31,15 @@ ExecutionRedisPool::ExecutionRedisPool(const std::string& ip_address, uint16_t p
                                      + ": " + recv_ctx->errstr);
         }
 
-        redisReply* subscribeReply = (redisReply*)redisCommand(recv_ctx, "SUBSCRIBE exec_result");  
-        freeReplyObject(subscribeReply); 
-
         while (true)
         {
-            redisReply* reply = nullptr; 
-            if (redisGetReply(recv_ctx, (void**)&reply) != REDIS_OK) 
-                break;
-
-            if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 3)
+            redisReply* reply = (redisReply*)redisCommand(recv_ctx, "BLPOP exec_result 0");  
+            if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2)
             { 
-                std::string result = json::parse(reply->element[2]->str);  
-                _on_execution_complete_func(result);
+                json response = json::parse(reply->element[1]->str);  
+                _on_execution_complete_func(response);
             }
+            freeReplyObject(reply);
         }
         redisFree(recv_ctx);
     });
@@ -52,12 +47,16 @@ ExecutionRedisPool::ExecutionRedisPool(const std::string& ip_address, uint16_t p
 
 void ExecutionRedisPool::enqueue(const nlohmann::json& message)
 {
-    redisReply* reply = (redisReply*)redisCommand(_redis_ctx, "PUBLISH exec %s", message.dump().c_str());
+    redisReply* reply = (redisReply*)redisCommand(_redis_ctx, "RPUSH exec %s", message.dump().c_str());
 
 #ifdef DEBUG_BUILD
-    if (reply->type == REDIS_REPLY_INTEGER)
+    if (reply->type != REDIS_REPLY_ERROR)
     {
-        std::cout << "Message sent to " << reply->integer << " subscribers" << std::endl;
+        std::cout << "Message sent to REDIS exec queue" << std::endl;
+    }
+    else
+    {
+        std::cout << "REDIS Error: " << reply->str << std::endl;
     }
 #endif
     freeReplyObject(reply);
