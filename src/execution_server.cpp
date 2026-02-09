@@ -1,6 +1,7 @@
 
 #include "execution_server.hpp"
 #include "execution_emulated_pool.hpp"
+#include "execution_redis_pool.hpp" 
 #include "execution_thread_pool.hpp"
 #include "executor.hpp"
 #include "tcp_socket_server.hpp"
@@ -16,6 +17,8 @@ using json = nlohmann::json;
 
 ExecutionServer::ExecutionServer(const Config& config) : _config(config)
 {
+
+
     switch (config.socket_type)
     {
     case SocketType::UNIX:
@@ -35,6 +38,9 @@ ExecutionServer::ExecutionServer(const Config& config) : _config(config)
         break;
     case ExecutionPoolType::EMULATED:
         _execution_pool = std::make_unique<ExecutionEmulatedPool>();
+        break;
+    case ExecutionPoolType::REDIS: 
+        _execution_pool = std::make_unique<ExecutionRedisPool>("localhost", 6379);
         break;
     default:
         throw std::invalid_argument("Unsupported execution pool type");

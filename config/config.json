@@ -1,1 +1,1 @@
-{"socket": {"socket_type": "unix", "path": "/tmp/exeuctor.sock"}, "sandbox_config_path": "./config/sandbox.cfg", "execution_pool_type": "thread_pool", "num_threads": 100}
+{"socket": {"socket_type": "unix", "path": "/tmp/executor.sock"}, "sandbox_config_path": "config/sandbox.cfg", "execution_pool_type": "redis"}
